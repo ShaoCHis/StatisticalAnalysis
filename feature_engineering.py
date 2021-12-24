@@ -91,7 +91,7 @@ def compute_perclos(data):
     for frame in range(0, video_length):
         ear = compute_ear(data, frame)
         ear_list.append(ear)
-    close_eye_thresh = min(ear_list) + (max(list) - min(list)) * p
+    close_eye_thresh = min(ear_list) + (max(ear_list) - min(ear_list)) * p
     # 统计闭眼次数
     close_count = 0
     for ear in ear_list:
