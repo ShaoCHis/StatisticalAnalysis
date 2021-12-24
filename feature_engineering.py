@@ -1,6 +1,6 @@
 import math
-
 import pandas as pd
+import matplotlib.pyplot as plt
 
 # 眼睛关键点的索引
 # 左眼
@@ -21,15 +21,21 @@ right_right_eye_point = 45
 # 嘴关键点索引
 left_mouth_point = 48
 right_mouth_point = 54
-top_left_mouth = 61
-top_middle_mouth = 62
-top_right_mouth = 63
-bottom_left_mouth = 67
-bottom_middle_mouth = 66
-bottom_right_mouth = 65
+top_left_mouth = 50
+top_middle_mouth = 51
+top_right_mouth = 52
+bottom_left_mouth = 58
+bottom_middle_mouth = 57
+bottom_right_mouth = 56
+# top_left_mouth = 61
+# top_middle_mouth = 62
+# top_right_mouth = 63
+# bottom_left_mouth = 67
+# bottom_middle_mouth = 66
+# bottom_right_mouth = 65
 
 # 视频的帧数
-video_length = 10
+video_length = 20
 
 # p70,可以调整眼睛闭合比例的大小即pxx
 p = 0.7
@@ -39,6 +45,12 @@ F = 0.3
 
 # 嘴巴纵横比阈值
 openThresh = 0.5
+
+# level0的ear平均值
+ear_level0 = []
+ear_level1 = []
+ear_level2 = []
+mean_ear = 0
 
 
 # 计算眼部的纵横比
@@ -62,7 +74,7 @@ def compute_ear(data, frame):
     left_eye_right_index = index + left_right_eye_point
     left_horizontal_length = compute_line_distance(data["x"][left_eye_left_index], data["x"][left_eye_right_index],
                                                    data["y"][left_eye_left_index], data["y"][left_eye_right_index])
-    left_ear = left_vertical_length / 2 * left_horizontal_length
+    left_ear = left_vertical_length / (2 * left_horizontal_length)
     # 右眼计算
     right_eye_top_left = index + right_top_left_eye
     right_eye_bottom_left = index + right_bottom_left_eye
@@ -79,23 +91,35 @@ def compute_ear(data, frame):
     right_eye_right_index = index + right_right_eye_point
     right_horizontal_length = compute_line_distance(data["x"][right_eye_left_index], data["x"][right_eye_right_index],
                                                     data["y"][right_eye_left_index], data["y"][right_eye_right_index])
-    right_ear = right_vertical_length / 2 * right_horizontal_length
+    right_ear = right_vertical_length / (2 * right_horizontal_length)
     ear = (left_ear + right_ear) / 2
     return ear
 
 
 # 目前仅为二分类，即疲劳，不疲劳
 # 可以将f作为特征值输入三分类模型进行训练
-def compute_perclos(data):
+def compute_perclos(data, type):
     ear_list = []
     for frame in range(0, video_length):
         ear = compute_ear(data, frame)
         ear_list.append(ear)
-    close_eye_thresh = min(ear_list) + (max(ear_list) - min(ear_list)) * p
+    if type == 0:
+        close_eye_thresh = min(ear_list) + (max(ear_list) - min(ear_list)) * p
+        print("0:   "+str(max(ear_list)-min(ear_list)))
+        # ear_level0.append(max(ear_list)-min(ear_list))
+    elif type == 1:
+        close_eye_thresh = min(ear_list) + (max(ear_list) - min(ear_list)) * p
+        print("1:   " + str(max(ear_list) - min(ear_list)))
+        # ear_level1.append(max(ear_list)-min(ear_list))
+    else:
+        close_eye_thresh = min(ear_list) + (max(ear_list) - min(ear_list)) * p
+        print("2:   " + str(max(ear_list) - min(ear_list)))
+        # ear_level2.append(max(ear_list)-min(ear_list))
     # 统计闭眼次数
     close_count = 0
     for ear in ear_list:
-        if ear < close_eye_thresh:
+        # if ear < close_eye_thresh:
+        if ear < 0.357:
             close_count += 1
     f = close_count / video_length
     return f
@@ -128,14 +152,14 @@ def compute_mar(data, frame):
     mouth_right_index = index + right_mouth_point
     horizontal_length = compute_line_distance(data["x"][mouth_left_index], data["x"][mouth_right_index],
                                               data["y"][mouth_left_index], data["y"][mouth_right_index])
-    mar = vertical_length / 3 * horizontal_length
+    mar = vertical_length / (3 * horizontal_length)
     return mar
 
 
 # 眼部特征
-def eye_feature(data):
+def eye_feature(data, type):
     # 得到f值
-    return compute_perclos(data)
+    return compute_perclos(data, type)
 
 
 # 嘴部特征
@@ -143,16 +167,16 @@ def mouth_feature(data):
     # 超过5帧大于阈值即计为哈欠
     # 首先初始化哈欠标志位yawn_flag和哈欠计数器yawn_counter为0，当检测到嘴巴张开(MAR > 0.75)
     # 时，yawn_counter自加1，当连续3次检测到MAR > 0.75
-    # 即认为驾驶人正在张嘴，开始计时并将yawn_counter置1。当检测到驾驶人嘴巴闭合时，若张嘴持续时间大于等于2秒，则认为打了一次哈欠
+    # 即认为驾驶人正在张嘴，开始计时并将yawn_counter置1。当检测到驾驶人嘴巴闭合时，若张嘴持续时间大于等于1.5秒，则认为打了一次哈欠
     # ，哈欠次数yawns自加1。每60秒统计一次哈欠次数，当达到规定的3次 / min时触发警报。
     yawns = 0
     yawn_counter = 0
     for frame in range(0, video_length):
         mar = compute_mar(data, frame)
-        if mar > 0.75:
+        if mar > openThresh:
             yawn_counter += 1
-            # 这个五帧需要进行调参
-            if yawn_counter >= 5:
+            # 这个十五帧需要进行调参
+            if yawn_counter >= 20:
                 yawns += 1
                 yawn_counter = 0
         else:
@@ -177,5 +201,24 @@ if __name__ == '__main__':
         line = lines[i].strip()
         line = line.replace("\\", "/")
         file = pd.read_csv(line)
-        print(eye_feature(file))
-        print(mouth_feature(file))
+        if line[11] == '0':
+            ear_level0.append(eye_feature(file, 0))
+            # print("0:"+str(eye_feature(file, 0)))
+        elif line[11] == '1':
+            ear_level1.append(eye_feature(file, 1))
+            # print("1:"+str(eye_feature(file, 1)))
+        else:
+            ear_level2.append(eye_feature(file, 2))
+            # print("2:"+str(eye_feature(file, 2)))
+        # print(eye_feature(file))
+        # print(mouth_feature(file))
+    plt.hist(ear_level0)
+    plt.show()
+    plt.hist(ear_level1)
+    plt.show()
+    plt.hist(ear_level2)
+    plt.show()
+    print(sum(ear_level0) / len(ear_level0))
+    print(sum(ear_level1) / len(ear_level1))
+    print(sum(ear_level2) / len(ear_level2))
+    exit(0)
