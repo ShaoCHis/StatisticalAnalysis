@@ -90,7 +90,6 @@ def split_or_delete_frames(limit=50, root='data'):
                 if max_frame < limit:
                     count_del += 1
                     continue
-                f.write(file_path + '\n')
                 if max_frame / limit < 1.5:
                     start_frame = int((max_frame - limit) // 2)
                     video_file[start_frame * 68: int((start_frame + limit)) * 68].to_csv(file_path, index=False)
