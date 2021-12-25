@@ -1,4 +1,6 @@
 import math
+
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -35,7 +37,7 @@ bottom_right_mouth = 56
 # bottom_right_mouth = 65
 
 # 视频的帧数
-video_length = 20
+video_length = 50
 
 # p70,可以调整眼睛闭合比例的大小即pxx
 p = 0.3
@@ -200,7 +202,7 @@ def mouth_feature(data):
         if mar > openThresh:
             yawn_counter += 1
             # 这个十五帧需要进行调参
-            if yawn_counter >= 15:
+            if yawn_counter >= 10:
                 yawns += 1
                 yawn_counter = 0
         else:
@@ -215,37 +217,56 @@ def compute_line_distance(x1, x2, y1, y2):
     return distance
 
 
+def compute_feature(data, frame):
+    return [compute_ear(data, frame), compute_mar(data, frame)]
+
+
+def return_feature(filePath):
+    data = pd.read_csv(line)
+    feature = []
+    for i in range(0, video_length):
+        feature_list.append(compute_feature(data, i))
+    return feature, int(filePath[11])
+
+
 if __name__ == '__main__':
     # 循环示例，后续读取final_data_list.txt
     fileList = open("final_data_list.txt", "r")
     lines = fileList.readlines()
     fileList.close()
-    # 画图用factor
-    ear_level0y = []
-    ear_level1y = []
-    ear_level2y = []
+    # 画图用 factor
+    # ear_level0y = []
+    # ear_level1y = []
+    # ear_level2y = []
     for i in range(0, len(lines)):
         line = lines[i].strip()
         line = line.replace("\\", "/")
         file = pd.read_csv(line)
+        feature_list = []
         if line[11] == '0':
-            eye_feature(file, 0)
-            ear_level0y.append(0)
+            for i in range(0, video_length):
+                feature_list.append(compute_feature(file, i))
+            # eye_feature(file, 0)
+            # ear_level0y.append(0)
         elif line[11] == '1':
-            eye_feature(file, 1)
-            ear_level1y.append(1)
+            for i in range(0, video_length):
+                feature_list.append(compute_feature(file, i))
+            # eye_feature(file, 1)
+            # ear_level1y.append(1)
         else:
-            eye_feature(file, 2)
-            ear_level2y.append(2)
+            for i in range(0, video_length):
+                feature_list.append(compute_feature(file, i))
+            # eye_feature(file, 2)
+            # ear_level2y.append(2)
         # print(mouth_feature(file))
-    ear_y = ear_level0y + ear_level1y + ear_level2y
-    plt.scatter(ear_y, ear_level0_difference + ear_level1_difference + ear_level2_difference, c=ear_y)
-    plt.title("max-min")
-    plt.show()
-    plt.scatter(ear_y, ear_self_level0 + ear_self_level1 + ear_self_level2, c=ear_y)
-    plt.title("self_thresh")
-    plt.show()
-    plt.scatter(ear_y, ear_mean_level0 + ear_mean_level1 + ear_mean_level2, c=ear_y)
-    plt.title("mean_thresh")
-    plt.show()
+    # ear_y = ear_level0y + ear_level1y + ear_level2y
+    # plt.scatter(ear_y, ear_level0_difference + ear_level1_difference + ear_level2_difference, c=ear_y)
+    # plt.title("max-min")
+    # plt.show()
+    # plt.scatter(ear_y, ear_self_level0 + ear_self_level1 + ear_self_level2, c=ear_y)
+    # plt.title("self_thresh")
+    # plt.show()
+    # plt.scatter(ear_y, ear_mean_level0 + ear_mean_level1 + ear_mean_level2, c=ear_y)
+    # plt.title("mean_thresh")
+    # plt.show()
     exit(0)
