@@ -1,6 +1,12 @@
 from torch.utils.data import Dataset
 import torch
 from feature_engineering import return_feature
+from sklearn.preprocessing import MinMaxScaler
+import numpy as np
+
+def feature_normalization(feature):
+    minMaxScaler = MinMaxScaler()
+    return minMaxScaler.fit_transform(feature)
 
 
 class FaceDataset(Dataset):

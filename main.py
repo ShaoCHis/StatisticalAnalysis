@@ -9,10 +9,10 @@ from LSTM import LSTM
 from dataset import FaceDataset
 
 epoches = 200
-batch_size = 8
+batch_size = 2
 time_step = 28
 input_size = 28
-learning_rate = 0.05
+learning_rate = 0.01
 hidden_size = 64
 num_layers = 1
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -44,6 +44,7 @@ def main():
                 feature, label = feature.to(device), label.to(device)
                 optimizer.zero_grad()
                 outputs = lstm(feature)
+
                 loss = lstm_loss(outputs, label)
                 total_loss += loss.cpu().detach().numpy()
                 _, predicted = torch.max(outputs.data, 1)
@@ -63,26 +64,9 @@ def main():
             total = 0
             for (feature_test, label_test) in test_loader:
                 feature_test, label_test = feature_test.to(device), label_test.to(device)
-                outputs = lstm(feature_test)
                 _, predicted = torch.max(outputs.data, 1)
                 total += label_test.size(0)
-                y_pred = (
-                    predicted.data
-                    if y_pred == None
-                    else torch.cat((y_pred, predicted.data))
-                )
-                y_true = (
-                    label_test
-                    if y_true == None
-                    else torch.cat((y_true, label_test))
-                )
                 acc += (predicted == label_test).sum()
-            print(
-                confusion_matrix(
-                    y_true=y_true.cpu().detach().numpy(),
-                    y_pred=y_pred.cpu().detach().numpy(),
-                )
-            )
             acc = 100 * acc / total
             print(acc.item(), "%")
 
