@@ -9,7 +9,7 @@ from LSTM import LSTM
 from dataset import FaceDataset
 
 epoches = 200
-batch_size = 2
+batch_size = 4
 time_step = 28
 input_size = 28
 learning_rate = 0.01
@@ -64,6 +64,7 @@ def main():
             total = 0
             for (feature_test, label_test) in test_loader:
                 feature_test, label_test = feature_test.to(device), label_test.to(device)
+                outputs = lstm(feature_test)
                 _, predicted = torch.max(outputs.data, 1)
                 total += label_test.size(0)
                 acc += (predicted == label_test).sum()
