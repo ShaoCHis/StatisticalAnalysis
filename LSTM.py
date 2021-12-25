@@ -1,5 +1,6 @@
 import torch.nn as nn
 
+
 class LSTM(nn.Module):
     def __init__(self, input_size=1, hidden_layer_size=100, num_layers=10, output_size=3):
         super(LSTM, self).__init__()
@@ -12,4 +13,3 @@ class LSTM(nn.Module):
         lstm_out, _ = self.lstm(x)
         output = self.fc(lstm_out[:, 1, :])
         return output
-
