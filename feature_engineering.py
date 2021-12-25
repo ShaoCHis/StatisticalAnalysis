@@ -38,7 +38,7 @@ bottom_right_mouth = 56
 video_length = 20
 
 # p70,可以调整眼睛闭合比例的大小即pxx
-p = 0.7
+p = 0.3
 
 # F为疲劳度阈值，f>F即为疲劳
 F = 0.3
@@ -105,21 +105,24 @@ def compute_perclos(data, type):
         ear_list.append(ear)
     if type == 0:
         close_eye_thresh = min(ear_list) + (max(ear_list) - min(ear_list)) * p
-        print("0:   "+str(max(ear_list)-min(ear_list)))
+        # print("0:   "+str(max(ear_list)-min(ear_list)))
         # ear_level0.append(max(ear_list)-min(ear_list))
+        # ear_level0.append(close_eye_thresh)
     elif type == 1:
         close_eye_thresh = min(ear_list) + (max(ear_list) - min(ear_list)) * p
-        print("1:   " + str(max(ear_list) - min(ear_list)))
+        # print("1:   " + str(max(ear_list) - min(ear_list)))
         # ear_level1.append(max(ear_list)-min(ear_list))
+        # ear_level1.append(close_eye_thresh)
     else:
         close_eye_thresh = min(ear_list) + (max(ear_list) - min(ear_list)) * p
-        print("2:   " + str(max(ear_list) - min(ear_list)))
+        # print("2:   " + str(max(ear_list) - min(ear_list)))
         # ear_level2.append(max(ear_list)-min(ear_list))
+        # ear_level2.append(close_eye_thresh)
     # 统计闭眼次数
     close_count = 0
     for ear in ear_list:
         # if ear < close_eye_thresh:
-        if ear < 0.357:
+        if ear < 0.276:
             close_count += 1
     f = close_count / video_length
     return f
@@ -197,26 +200,30 @@ if __name__ == '__main__':
     lines = fileList.readlines()
     fileList.close()
     print(len(lines))
+    ear_level0y = []
+    ear_level1y = []
+    ear_level2y = []
     for i in range(0, len(lines)):
         line = lines[i].strip()
         line = line.replace("\\", "/")
         file = pd.read_csv(line)
         if line[11] == '0':
-            ear_level0.append(eye_feature(file, 0))
+            # 查看f值分布
+            # ear_level0.append(eye_feature(file, 0))
             # print("0:"+str(eye_feature(file, 0)))
+            ear_level0y.append(0)
         elif line[11] == '1':
-            ear_level1.append(eye_feature(file, 1))
+            # ear_level1.append(eye_feature(file, 1))
             # print("1:"+str(eye_feature(file, 1)))
+            ear_level1y.append(1)
         else:
-            ear_level2.append(eye_feature(file, 2))
+            # ear_level2.append(eye_feature(file, 2))
             # print("2:"+str(eye_feature(file, 2)))
-        # print(eye_feature(file))
+            ear_level2y.append(2)
         # print(mouth_feature(file))
-    plt.hist(ear_level0)
-    plt.show()
-    plt.hist(ear_level1)
-    plt.show()
-    plt.hist(ear_level2)
+    earList = ear_level0 + ear_level1 + ear_level2
+    earType = ear_level0y + ear_level1y + ear_level2y
+    plt.scatter(earType, earList, marker='o', c=earType, alpha=0.3)
     plt.show()
     print(sum(ear_level0) / len(ear_level0))
     print(sum(ear_level1) / len(ear_level1))
