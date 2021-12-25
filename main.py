@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.utils.data as Data
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 import tqdm
 
@@ -16,10 +16,15 @@ hidden_size = 64
 num_layers = 1
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-train_set = FaceDataset(files_path=xxx)
+f = open("final_data_list.txt", "r")
+lines = f.readlines()
+f.close()
+lines = [line.strip() for line in lines]
+train_X, test_X, _, _ = train_test_split(lines, None, test_size=0.3,random_state=17)
+train_set = FaceDataset(files_path=train_X)
 train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
 
-test_set = FaceDataset(files_path=xxx)
+test_set = FaceDataset(files_path=test_X)
 test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=True)
 
 
