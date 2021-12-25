@@ -1,7 +1,12 @@
 from torch.utils.data import Dataset
-import numpy as np
 import torch
-import torchaudio
+from feature_engineering import return_feature
+from sklearn.preprocessing import MinMaxScaler
+import numpy as np
+
+def feature_normalization(feature):
+    minMaxScaler = MinMaxScaler()
+    return minMaxScaler.fit_transform(feature)
 
 
 class FaceDataset(Dataset):
@@ -13,10 +18,10 @@ class FaceDataset(Dataset):
 
     def __getitem__(self, idx):
         file_path = self.files_path[idx]
-        feature, label = xxxx()
+        feature, label = return_feature(file_path)
         one_hot_label = torch.zeros(3)
-        one_hot_label[label] = 1
         return (
-            feature,
-            one_hot_label,
+            torch.tensor(feature),
+            # torch.tensor(one_hot_label),
+            torch.tensor(label)
         )
