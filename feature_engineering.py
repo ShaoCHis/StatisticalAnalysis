@@ -3,6 +3,7 @@ import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import cv2
 
 # 眼睛关键点的索引
 # 左眼
@@ -62,6 +63,40 @@ ear_level1_difference = []
 ear_level2_difference = []
 # level0的close_thresh
 mean_ear = 0
+
+# 世界坐标系(UVW)：填写3D参考点，该模型参考http://aifi.isr.uc.pt/Downloads/OpenGL/glAnthropometric3DModel.cpp
+object_pts = np.float32([[6.825897, 6.760612, 4.402142],  # 33左眉左上角
+                         [1.330353, 7.122144, 6.903745],  # 29左眉右角
+                         [-1.330353, 7.122144, 6.903745],  # 34右眉左角
+                         [-6.825897, 6.760612, 4.402142],  # 38右眉右上角
+                         [5.311432, 5.485328, 3.987654],  # 13左眼左上角
+                         [1.789930, 5.393625, 4.413414],  # 17左眼右上角
+                         [-1.789930, 5.393625, 4.413414],  # 25右眼左上角
+                         [-5.311432, 5.485328, 3.987654],  # 21右眼右上角
+                         [2.005628, 1.409845, 6.165652],  # 55鼻子左上角
+                         [-2.005628, 1.409845, 6.165652],  # 49鼻子右上角
+                         [2.774015, -2.080775, 5.048531],  # 43嘴左上角
+                         [-2.774015, -2.080775, 5.048531],  # 39嘴右上角
+                         [0.000000, -3.116408, 6.097667],  # 45嘴中央下角
+                         [0.000000, -7.415691, 4.070434]])  # 6下巴角
+# 相机坐标系(XYZ)：添加相机内参
+K = [6.5308391993466671e+002, 0.0, 3.1950000000000000e+002,
+     0.0, 6.5308391993466671e+002, 2.3950000000000000e+002,
+     0.0, 0.0, 1.0]  # 等价于矩阵[fx, 0, cx; 0, fy, cy; 0, 0, 1]
+# 图像中心坐标系(uv)：相机畸变参数[k1, k2, p1, p2, k3]
+D = [7.0834633684407095e-002, 6.9140193737175351e-002, 0.0, 0.0, -1.3073460323689292e+000]
+# 像素坐标系(xy)：填写凸轮的本征和畸变系数
+cam_matrix = np.array(K).reshape(3, 3).astype(np.float32)
+dist_coffees = np.array(D).reshape(5, 1).astype(np.float32)
+# 重新投影3D点的世界坐标轴以验证结果姿势
+reprojectSrc = np.float32([[10.0, 10.0, 10.0],
+                           [10.0, 10.0, -10.0],
+                           [10.0, -10.0, -10.0],
+                           [10.0, -10.0, 10.0],
+                           [-10.0, 10.0, 10.0],
+                           [-10.0, 10.0, -10.0],
+                           [-10.0, -10.0, -10.0],
+                           [-10.0, -10.0, 10.0]])
 
 
 # 计算眼部的纵横比
@@ -218,7 +253,7 @@ def compute_line_distance(x1, x2, y1, y2):
 
 
 def compute_feature(data, frame):
-    return [compute_ear(data, frame), compute_mar(data, frame)]
+    return [compute_ear(data, frame), compute_mar(data, frame), *get_head_pose(data, frame)]
 
 
 def return_feature(filePath):
@@ -229,44 +264,140 @@ def return_feature(filePath):
     return feature, int(filePath[11])
 
 
-# if __name__ == '__main__':
-#     # 循环示例，后续读取final_data_list.txt
-#     fileList = open("final_data_list.txt", "r")
-#     lines = fileList.readlines()
-#     fileList.close()
-#     # 画图用 factor
-#     # ear_level0y = []
-#     # ear_level1y = []
-#     # ear_level2y = []
-#     for i in range(0, len(lines)):
-#         line = lines[i].strip()
-#         line = line.replace("\\", "/")
-#         file = pd.read_csv(line)
-#         feature_list = []
-#         if line[11] == '0':
-#             for i in range(0, video_length):
-#                 feature_list.append(compute_feature(file, i))
-#             # eye_feature(file, 0)
-#             # ear_level0y.append(0)
-#         elif line[11] == '1':
-#             for i in range(0, video_length):
-#                 feature_list.append(compute_feature(file, i))
-#             # eye_feature(file, 1)
-#             # ear_level1y.append(1)
-#         else:
-#             for i in range(0, video_length):
-#                 feature_list.append(compute_feature(file, i))
-#             # eye_feature(file, 2)
-#             # ear_level2y.append(2)
-#         # print(mouth_feature(file))
-#     # ear_y = ear_level0y + ear_level1y + ear_level2y
-#     # plt.scatter(ear_y, ear_level0_difference + ear_level1_difference + ear_level2_difference, c=ear_y)
-#     # plt.title("max-min")
-#     # plt.show()
-#     # plt.scatter(ear_y, ear_self_level0 + ear_self_level1 + ear_self_level2, c=ear_y)
-#     # plt.title("self_thresh")
-#     # plt.show()
-#     # plt.scatter(ear_y, ear_mean_level0 + ear_mean_level1 + ear_mean_level2, c=ear_y)
-#     # plt.title("mean_thresh")
-#     # plt.show()
-#     exit(0)
+def get_head_pose(shape, index):  # 头部姿态估计
+    index = index * 68
+    # （像素坐标集合）填写2D参考点，注释遵循https://ibug.doc.ic.ac.uk/resources/300-W/
+    # 17左眉左上角/21左眉右角/22右眉左上角/26右眉右上角/36左眼左上角/39左眼右上角/42右眼左上角/
+    # 45右眼右上角/31鼻子左上角/35鼻子右上角/48左上角/54嘴右上角/57嘴中央下角/8下巴角
+    image_pts = np.float32(
+        [[shape["x"][index + 17], shape["y"][index + 17]], [shape["x"][index + 21], shape["y"][index + 21]],
+         [shape["x"][index + 22], shape["y"][index + 22]], [shape["x"][index + 26], shape["y"][index + 26]],
+         [shape["x"][index + 36], shape["y"][index + 36]],
+         [shape["x"][index + 39], shape["y"][index + 39]], [shape["x"][index + 42], shape["y"][index + 42]],
+         [shape["x"][index + 45], shape["y"][index + 45]], [shape["x"][index + 31], shape["y"][index + 31]],
+         [shape["x"][index + 35], shape["y"][index + 35]],
+         [shape["x"][index + 48], shape["y"][index + 48]], [shape["x"][index + 54], shape["y"][index + 54]],
+         [shape["x"][index + 57], shape["y"][index + 57]], [shape["x"][index + 8], shape["y"][index + 8]]])
+    # solvePnP计算姿势——求解旋转和平移矩阵：
+    # rotation_vec表示旋转矩阵，translation_vec表示平移矩阵，cam_matrix与K矩阵对应，dist_coeffs与D矩阵对应。
+    _, rotation_vec, translation_vec = cv2.solvePnP(object_pts, image_pts, cam_matrix, dist_coffees)
+    # projectPoints重新投影误差：原2d点和重投影2d点的距离（输入3d点、相机内参、相机畸变、r、t，输出重投影2d点）
+    reprojectDst, _ = cv2.projectPoints(reprojectSrc, rotation_vec, translation_vec, cam_matrix, dist_coffees)
+    reprojectDst = tuple(map(tuple, reprojectDst.reshape(8, 2)))  # 以8行2列显示
+
+    # 计算欧拉角calc euler angle
+    # 参考https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html#decomposeprojectionmatrix
+    rotation_mat, _ = cv2.Rodrigues(rotation_vec)  # 罗德里格斯公式（将旋转矩阵转换为旋转向量）
+    pose_mat = cv2.hconcat((rotation_mat, translation_vec))  # 水平拼接，vconcat垂直拼接
+    # decomposeProjectionMatrix将投影矩阵分解为旋转矩阵和相机矩阵
+    _, _, _, _, _, _, euler_angle = cv2.decomposeProjectionMatrix(pose_mat)
+
+    pitch, yaw, roll = [math.radians(_) for _ in euler_angle]
+
+    pitch = math.degrees(math.asin(math.sin(pitch)))
+    roll = -math.degrees(math.asin(math.sin(roll)))
+    yaw = math.degrees(math.asin(math.sin(yaw)))
+    # print('pitch:{}, yaw:{}, roll:{}'.format(pitch, yaw, roll))
+    return pitch, yaw, roll
+    # return reprojectDst, euler_angle  # 投影误差，欧拉角
+
+
+if __name__ == '__main__':
+    # 循环示例，后续读取final_data_list.txt
+    fileList = open("final_data_list.txt", "r")
+    lines = fileList.readlines()
+    fileList.close()
+    # 画图用 factor
+    ear_level0y = []
+    ear_level1y = []
+    ear_level2y = []
+    for i in range(0, len(lines)):
+        line = lines[i].strip()
+        line = line.replace("\\", "/")
+        print(return_feature(line))
+    #
+    # for i in range(0, len(lines)):
+    #     line = lines[i].strip()
+    #     line = line.replace("\\", "/")
+    #     file = pd.read_csv(line)
+    #     feature_list = []
+    #     if line[11] == '0':
+    #         for i in range(0, video_length):
+    #             feature_list.append(compute_feature(file, i))
+    #         eye_feature(file, 0)
+    #         ear_level0y.append(0)
+    #     elif line[11] == '1':
+    #         for i in range(0, video_length):
+    #             feature_list.append(compute_feature(file, i))
+    #         eye_feature(file, 1)
+    #         ear_level1y.append(1)
+    #     else:
+    #         for i in range(0, video_length):
+    #             feature_list.append(compute_feature(file, i))
+    #         # eye_feature(file, 2)
+    #         # ear_level2y.append(2)
+    #     # print(mouth_feature(file))
+    #
+    # # plot
+    # ear_y = ear_level0y + ear_level1y + ear_level2y
+    # plt.scatter(ear_y, ear_level0_difference + ear_level1_difference + ear_level2_difference, c=ear_y)
+    # plt.title("max-min")
+    # plt.show()
+    # plt.scatter(ear_y, ear_self_level0 + ear_self_level1 + ear_self_level2, c=ear_y)
+    # plt.title("self_thresh")
+    # plt.show()
+    # plt.scatter(ear_y, ear_mean_level0 + ear_mean_level1 + ear_mean_level2, c=ear_y)
+    # plt.title("mean_thresh")
+    # plt.show()
+
+    # head0 = []
+    # head1 = []
+    # head2 = []
+    # for i in range(0, len(lines)):
+    #     # 第十五步：获取头部姿态
+    #     line = lines[i].strip()
+    #     line = line.replace("\\", "/")
+    #     file = pd.read_csv(line)
+    #     hCOUNTER = 0
+    #     hTOTAL = 0
+    #     NOD_AR_CONSEC_FRAMES = 5
+    #     for frame in range(0, video_length):
+    #         reprojectDst, euler_angle = get_head_pose(file, frame)
+    #         har = euler_angle[0, 0]  # 取pitch旋转角度
+    #         if har > 0.3:  # 点头阈值0.3
+    #             hCOUNTER += 1
+    #         else:
+    #             # 如果连续3次都小于阈值，则表示瞌睡点头一次
+    #             if hCOUNTER >= NOD_AR_CONSEC_FRAMES:  # 阈值：3
+    #                 hTOTAL += 1
+    #             # 重置点头帧计数器
+    #             hCOUNTER = 0
+    #     if line[11] == '0':
+    #         ear_level0y.append(0)
+    #         head0.append(hTOTAL)
+    #         # head0.append(hCOUNTER/video_length)
+    #         print("0:    " + str(hTOTAL))
+    #     elif line[11] == '1':
+    #         ear_level1y.append(1)
+    #         head1.append(hTOTAL)
+    #         # head1.append(hCOUNTER / video_length)
+    #         print("1:    " + str(hTOTAL))
+    #     else:
+    #         ear_level2y.append(2)
+    #         head2.append(hTOTAL)
+    #         # head2.append(hCOUNTER / video_length)
+    #         print("2:    " + str(hTOTAL))
+    # ear_y = ear_level0y + ear_level1y + ear_level2y
+    # plt.scatter(ear_y, head0 + head1 + head2, c=ear_y, alpha=0.1)
+    # plt.title("head_pose")
+    # plt.show()
+    # plt.hist(head0, density=True, facecolor="green", edgecolor="green", )
+    # plt.title("level0")
+    # plt.show()
+    # plt.hist(head1, density=True, facecolor="green", edgecolor="green", )
+    # plt.title("level1")
+    # plt.show()
+    # plt.hist(head2, density=True, facecolor="green", edgecolor="green", )
+    # plt.title("level2")
+    # plt.show()
+    exit(0)
