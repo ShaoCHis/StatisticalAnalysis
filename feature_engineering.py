@@ -46,10 +46,19 @@ F = 0.3
 # 嘴巴纵横比阈值
 openThresh = 0.5
 
-# level0的ear平均值
-ear_level0 = []
-ear_level1 = []
-ear_level2 = []
+# f值，即perclos(按照一条csv的close_thresh计算)值
+ear_self_level0 = []
+ear_self_level1 = []
+ear_self_level2 = []
+# f值，按照mean_ear计算
+ear_mean_level0 = []
+ear_mean_level1 = []
+ear_mean_level2 = []
+# ear的差值（一条csv中，earList的max-min）
+ear_level0_difference = []
+ear_level1_difference = []
+ear_level2_difference = []
+# level0的close_thresh
 mean_ear = 0
 
 
@@ -104,20 +113,15 @@ def compute_perclos(data, type):
         ear = compute_ear(data, frame)
         ear_list.append(ear)
     if type == 0:
+        # 计算阈值
         close_eye_thresh = min(ear_list) + (max(ear_list) - min(ear_list)) * p
-        # print("0:   "+str(max(ear_list)-min(ear_list)))
-        # ear_level0.append(max(ear_list)-min(ear_list))
-        # ear_level0.append(close_eye_thresh)
+        ear_level0_difference.append(max(ear_list) - min(ear_list))
     elif type == 1:
         close_eye_thresh = min(ear_list) + (max(ear_list) - min(ear_list)) * p
-        # print("1:   " + str(max(ear_list) - min(ear_list)))
-        # ear_level1.append(max(ear_list)-min(ear_list))
-        # ear_level1.append(close_eye_thresh)
+        ear_level1_difference.append(max(ear_list) - min(ear_list))
     else:
         close_eye_thresh = min(ear_list) + (max(ear_list) - min(ear_list)) * p
-        # print("2:   " + str(max(ear_list) - min(ear_list)))
-        # ear_level2.append(max(ear_list)-min(ear_list))
-        # ear_level2.append(close_eye_thresh)
+        ear_level2_difference.append(max(ear_list) - min(ear_list))
     # 统计闭眼次数
     close_count = 0
     for ear in ear_list:
@@ -125,7 +129,24 @@ def compute_perclos(data, type):
         if ear < 0.276:
             close_count += 1
     f = close_count / video_length
-    return f
+    if type == 0:
+        ear_mean_level0.append(f)
+    elif type == 1:
+        ear_mean_level1.append(f)
+    else:
+        ear_mean_level2.append(f)
+    close_count = 0
+    for ear in ear_list:
+        if ear < close_eye_thresh:
+            close_count += 1
+    f = close_count / video_length
+    if type == 0:
+        ear_self_level0.append(f)
+    elif type == 1:
+        ear_self_level1.append(f)
+    else:
+        ear_self_level2.append(f)
+    # return f
 
 
 # 计算嘴部纵横比
@@ -179,7 +200,7 @@ def mouth_feature(data):
         if mar > openThresh:
             yawn_counter += 1
             # 这个十五帧需要进行调参
-            if yawn_counter >= 20:
+            if yawn_counter >= 15:
                 yawns += 1
                 yawn_counter = 0
         else:
@@ -199,7 +220,7 @@ if __name__ == '__main__':
     fileList = open("final_data_list.txt", "r")
     lines = fileList.readlines()
     fileList.close()
-    print(len(lines))
+    # 画图用factor
     ear_level0y = []
     ear_level1y = []
     ear_level2y = []
@@ -208,24 +229,23 @@ if __name__ == '__main__':
         line = line.replace("\\", "/")
         file = pd.read_csv(line)
         if line[11] == '0':
-            # 查看f值分布
-            # ear_level0.append(eye_feature(file, 0))
-            # print("0:"+str(eye_feature(file, 0)))
+            eye_feature(file, 0)
             ear_level0y.append(0)
         elif line[11] == '1':
-            # ear_level1.append(eye_feature(file, 1))
-            # print("1:"+str(eye_feature(file, 1)))
+            eye_feature(file, 1)
             ear_level1y.append(1)
         else:
-            # ear_level2.append(eye_feature(file, 2))
-            # print("2:"+str(eye_feature(file, 2)))
+            eye_feature(file, 2)
             ear_level2y.append(2)
         # print(mouth_feature(file))
-    earList = ear_level0 + ear_level1 + ear_level2
-    earType = ear_level0y + ear_level1y + ear_level2y
-    plt.scatter(earType, earList, marker='o', c=earType, alpha=0.3)
+    ear_y = ear_level0y + ear_level1y + ear_level2y
+    plt.scatter(ear_y, ear_level0_difference + ear_level1_difference + ear_level2_difference, c=ear_y)
+    plt.title("max-min")
     plt.show()
-    print(sum(ear_level0) / len(ear_level0))
-    print(sum(ear_level1) / len(ear_level1))
-    print(sum(ear_level2) / len(ear_level2))
+    plt.scatter(ear_y, ear_self_level0 + ear_self_level1 + ear_self_level2, c=ear_y)
+    plt.title("self_thresh")
+    plt.show()
+    plt.scatter(ear_y, ear_mean_level0 + ear_mean_level1 + ear_mean_level2, c=ear_y)
+    plt.title("mean_thresh")
+    plt.show()
     exit(0)
