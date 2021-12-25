@@ -222,51 +222,51 @@ def compute_feature(data, frame):
 
 
 def return_feature(filePath):
-    data = pd.read_csv(line)
+    data = pd.read_csv(filePath)
     feature = []
     for i in range(0, video_length):
-        feature_list.append(compute_feature(data, i))
+        feature.append(compute_feature(data, i))
     return feature, int(filePath[11])
 
 
-if __name__ == '__main__':
-    # 循环示例，后续读取final_data_list.txt
-    fileList = open("final_data_list.txt", "r")
-    lines = fileList.readlines()
-    fileList.close()
-    # 画图用 factor
-    # ear_level0y = []
-    # ear_level1y = []
-    # ear_level2y = []
-    for i in range(0, len(lines)):
-        line = lines[i].strip()
-        line = line.replace("\\", "/")
-        file = pd.read_csv(line)
-        feature_list = []
-        if line[11] == '0':
-            for i in range(0, video_length):
-                feature_list.append(compute_feature(file, i))
-            # eye_feature(file, 0)
-            # ear_level0y.append(0)
-        elif line[11] == '1':
-            for i in range(0, video_length):
-                feature_list.append(compute_feature(file, i))
-            # eye_feature(file, 1)
-            # ear_level1y.append(1)
-        else:
-            for i in range(0, video_length):
-                feature_list.append(compute_feature(file, i))
-            # eye_feature(file, 2)
-            # ear_level2y.append(2)
-        # print(mouth_feature(file))
-    # ear_y = ear_level0y + ear_level1y + ear_level2y
-    # plt.scatter(ear_y, ear_level0_difference + ear_level1_difference + ear_level2_difference, c=ear_y)
-    # plt.title("max-min")
-    # plt.show()
-    # plt.scatter(ear_y, ear_self_level0 + ear_self_level1 + ear_self_level2, c=ear_y)
-    # plt.title("self_thresh")
-    # plt.show()
-    # plt.scatter(ear_y, ear_mean_level0 + ear_mean_level1 + ear_mean_level2, c=ear_y)
-    # plt.title("mean_thresh")
-    # plt.show()
-    exit(0)
+# if __name__ == '__main__':
+#     # 循环示例，后续读取final_data_list.txt
+#     fileList = open("final_data_list.txt", "r")
+#     lines = fileList.readlines()
+#     fileList.close()
+#     # 画图用 factor
+#     # ear_level0y = []
+#     # ear_level1y = []
+#     # ear_level2y = []
+#     for i in range(0, len(lines)):
+#         line = lines[i].strip()
+#         line = line.replace("\\", "/")
+#         file = pd.read_csv(line)
+#         feature_list = []
+#         if line[11] == '0':
+#             for i in range(0, video_length):
+#                 feature_list.append(compute_feature(file, i))
+#             # eye_feature(file, 0)
+#             # ear_level0y.append(0)
+#         elif line[11] == '1':
+#             for i in range(0, video_length):
+#                 feature_list.append(compute_feature(file, i))
+#             # eye_feature(file, 1)
+#             # ear_level1y.append(1)
+#         else:
+#             for i in range(0, video_length):
+#                 feature_list.append(compute_feature(file, i))
+#             # eye_feature(file, 2)
+#             # ear_level2y.append(2)
+#         # print(mouth_feature(file))
+#     # ear_y = ear_level0y + ear_level1y + ear_level2y
+#     # plt.scatter(ear_y, ear_level0_difference + ear_level1_difference + ear_level2_difference, c=ear_y)
+#     # plt.title("max-min")
+#     # plt.show()
+#     # plt.scatter(ear_y, ear_self_level0 + ear_self_level1 + ear_self_level2, c=ear_y)
+#     # plt.title("self_thresh")
+#     # plt.show()
+#     # plt.scatter(ear_y, ear_mean_level0 + ear_mean_level1 + ear_mean_level2, c=ear_y)
+#     # plt.title("mean_thresh")
+#     # plt.show()
+#     exit(0)
