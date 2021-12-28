@@ -1,0 +1,16 @@
+authorName: zzl
+experimentName: rnn
+searchSpaceFile: search_space.json
+trialCommand: python main.py
+trialGpuNumber: 1
+trialConcurrency: 1
+maxTrialNumber: 50
+tuner:
+  builtinTunerName: TPE
+  classArgs:
+    optimize_mode: maximize
+trainingService:
+  platform: local
+  maxTrialNumberPerGpu: 1
+  useActiveGpu: true
+
