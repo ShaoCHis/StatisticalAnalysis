@@ -1,8 +1,46 @@
 import pandas as pd
-from feature_engineering import eye_feature,mouth_feature
+from feature_engineering import eye_feature,mouth_feature,compute_head_pose
 from sklearn.svm import SVC
 eye_data = []
 mouth_data = []
+mouth_data2 = []
+head_data=[]
+def get_mouth_fatigue(f1):
+
+    if f1.shape[0] == 0: return  # 有文件是空的
+    frame_list = f1['frame'].drop_duplicates().tolist()
+
+    def find_index(data_col, val):
+        val_list = []
+
+        val_list.append(val)
+        val_list.append("end")
+        index = data_col.isin(val_list).idxmax()
+
+        return index
+
+    first_index_list = []
+    for item in frame_list:
+        first_index_list.append(find_index(f1.frame, item))
+
+    list = []
+    keshui=0
+    for i in range(0, len(frame_list)):
+        f11 = f1.loc[f1['frame'] == frame_list[i]]
+        x_55 = f11.loc[54 + first_index_list[i]][2]
+        x_49 = f11.loc[48 + first_index_list[i]][2]
+        y_51 = f11.loc[50 + first_index_list[i]][3]
+        y_59 = f11.loc[58 + first_index_list[i]][3]
+        y_53 = f11.loc[52 + first_index_list[i]][3]
+        y_57 = f11.loc[56 + first_index_list[i]][3]
+        w_mouth = x_55 - x_49
+        h_mouth = (abs(y_51 - y_59) + abs(y_53 - y_57)) / 2
+        list.append({'frame': frame_list[i], 'w': w_mouth, 'h': h_mouth, 'K': h_mouth / w_mouth})
+        if h_mouth / w_mouth>0.5:
+            keshui+=1
+    list = pd.DataFrame(list)
+    return keshui/len(frame_list)
+
 def getData():
     # 循环示例，后续读取final_data_list.txt
 
@@ -31,10 +69,18 @@ def getData():
             eye_data.append(f)
         mf=mouth_feature(file)
         mouth_data.append(mf)
+
+        m2=get_mouth_fatigue(file)
+        mouth_data2.append(m2)
+
+        hd=compute_head_pose(file)
+        head_data.append(hd)
         # print(mouth_feature(file))
 
     ear_y = ear_level0y + ear_level1y + ear_level2y
-    merge = pd.DataFrame(data=[eye_data, mouth_data,ear_y], index=['eye', 'mouth','label']).T
+    merge = pd.DataFrame(data=[eye_data, mouth_data,head_data,mouth_data2,ear_y], index=['eye', 'mouth','head','mouth2','label']).T
     merge = merge.sample(frac=1).reset_index(drop=True)
     return merge
+
+
 
