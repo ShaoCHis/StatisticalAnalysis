@@ -35,13 +35,14 @@ bottom_right_mouth = 56
 video_length = 50
 
 # p70,可以调整眼睛闭合比例的大小即pxx
+# p80,可以调整眼睛闭合比例的大小即pxx
 p = 0.2
 
 # F为疲劳度阈值，f>F即为疲劳
 F = 0.3
 
 # 嘴巴纵横比阈值
-openThresh = 0.8
+openThresh = 0.6
 
 # f值，即perclos(按照一条csv的close_thresh计算)值
 ear_self_level0 = []
@@ -132,13 +133,11 @@ def compute_ear(data, frame):
     right_horizontal_length = compute_line_distance(data["x"][right_eye_left_index], data["x"][right_eye_right_index],
                                                     data["y"][right_eye_left_index], data["y"][right_eye_right_index])
     right_ear = right_vertical_length / (2 * right_horizontal_length)
-    # print("左眼:" + str(left_ear) + ";" + "右眼：" + str(right_ear))
-    if abs(right_ear - left_ear) > 0.01:
-        ear = max(right_ear, left_ear)
-        # print(ear)
+
+    if abs(right_ear-left_ear)>0.01:
+        ear=max(right_ear,left_ear)
     else:
         ear = (left_ear + right_ear) / 2
-        # print(ear)
     return ear
 
 
@@ -163,10 +162,9 @@ def compute_perclos(data, type):
     # 统计闭眼次数
     close_count = 0
     temp_longest = 0
-    print(close_eye_thresh)
     for ear in ear_list:
         # if ear < close_eye_thresh:
-        if ear < 0.2:
+        if ear < close_eye_thresh:
             close_count += 1
             temp_longest += 1
         else:
@@ -309,22 +307,20 @@ def get_head_pose(shape, index):  # 头部姿态估计
     # return reprojectDst, euler_angle  # 投影误差，欧拉角
 
 
-if __name__ == '__main__':
-    # 循环示例，后续读取final_data_list.txt
-    fileList = open("final_data_list.txt", "r")
-    lines = fileList.readlines()
-    fileList.close()
-    # 画图用 factor
-    ear_level0y = []
-    ear_level1y = []
-    ear_level2y = []
-
-    longest0 = []
-    longest1 = []
-    longest2 = []
-    # 最长闭眼时间
-    for i in range(0, len(lines)):
-        line = lines[i].strip()
-        line = line.replace("\\", "/")
-        file = pd.read_csv(line)
-    exit(0)
+def compute_head_pose(file):
+    hCOUNTER = 0
+    hTOTAL = 0
+    NOD_AR_CONSEC_FRAMES = 3
+    pitch_list = []
+    for frame in range(0, video_length):
+        har = get_head_pose(file,frame)[0]  # 取pitch旋转角度
+        pitch_list.append(har)
+        if abs(har - pitch_list[frame - 1]) > 5 and frame - 1 >= 0:  # 点头阈值0.3
+            hCOUNTER += 1
+        else:
+            # 如果连续3次都小于阈值，则表示瞌睡点头一次
+            if hCOUNTER >= NOD_AR_CONSEC_FRAMES:  # 阈值：3
+                hTOTAL += 1
+            # 重置点头帧计数器
+            hCOUNTER = 0
+    return hTOTAL
