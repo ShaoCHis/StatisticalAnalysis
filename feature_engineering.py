@@ -30,24 +30,18 @@ top_right_mouth = 52
 bottom_left_mouth = 58
 bottom_middle_mouth = 57
 bottom_right_mouth = 56
-# top_left_mouth = 61
-# top_middle_mouth = 62
-# top_right_mouth = 63
-# bottom_left_mouth = 67
-# bottom_middle_mouth = 66
-# bottom_right_mouth = 65
 
 # 视频的帧数
 video_length = 50
 
 # p70,可以调整眼睛闭合比例的大小即pxx
-p = 0.3
+p = 0.2
 
 # F为疲劳度阈值，f>F即为疲劳
 F = 0.3
 
 # 嘴巴纵横比阈值
-openThresh = 0.5
+openThresh = 0.8
 
 # f值，即perclos(按照一条csv的close_thresh计算)值
 ear_self_level0 = []
@@ -138,7 +132,13 @@ def compute_ear(data, frame):
     right_horizontal_length = compute_line_distance(data["x"][right_eye_left_index], data["x"][right_eye_right_index],
                                                     data["y"][right_eye_left_index], data["y"][right_eye_right_index])
     right_ear = right_vertical_length / (2 * right_horizontal_length)
-    ear = (left_ear + right_ear) / 2
+    # print("左眼:" + str(left_ear) + ";" + "右眼：" + str(right_ear))
+    if abs(right_ear - left_ear) > 0.01:
+        ear = max(right_ear, left_ear)
+        # print(ear)
+    else:
+        ear = (left_ear + right_ear) / 2
+        # print(ear)
     return ear
 
 
@@ -146,6 +146,7 @@ def compute_ear(data, frame):
 # 可以将f作为特征值输入三分类模型进行训练
 def compute_perclos(data, type):
     ear_list = []
+    longest_close_eye = 0
     for frame in range(0, video_length):
         ear = compute_ear(data, frame)
         ear_list.append(ear)
@@ -161,10 +162,17 @@ def compute_perclos(data, type):
         ear_level2_difference.append(max(ear_list) - min(ear_list))
     # 统计闭眼次数
     close_count = 0
+    temp_longest = 0
+    print(close_eye_thresh)
     for ear in ear_list:
         # if ear < close_eye_thresh:
-        if ear < 0.276:
+        if ear < 0.2:
             close_count += 1
+            temp_longest += 1
+        else:
+            if longest_close_eye < temp_longest:
+                longest_close_eye = temp_longest
+            temp_longest = 0
     f = close_count / video_length
     if type == 0:
         ear_mean_level0.append(f)
@@ -176,14 +184,13 @@ def compute_perclos(data, type):
     for ear in ear_list:
         if ear < close_eye_thresh:
             close_count += 1
-    f = close_count / video_length
     if type == 0:
         ear_self_level0.append(f)
     elif type == 1:
         ear_self_level1.append(f)
     else:
         ear_self_level2.append(f)
-    # return f
+    return f, longest_close_eye
 
 
 # 计算嘴部纵横比
@@ -237,7 +244,7 @@ def mouth_feature(data):
         if mar > openThresh:
             yawn_counter += 1
             # 这个十五帧需要进行调参
-            if yawn_counter >= 10:
+            if yawn_counter >= 3:
                 yawns += 1
                 yawn_counter = 0
         else:
@@ -297,7 +304,7 @@ def get_head_pose(shape, index):  # 头部姿态估计
     pitch = math.degrees(math.asin(math.sin(pitch)))
     roll = -math.degrees(math.asin(math.sin(roll)))
     yaw = math.degrees(math.asin(math.sin(yaw)))
-    # print('pitch:{}, yaw:{}, roll:{}'.format(pitch, yaw, roll))
+    print('pitch:{}, yaw:{}, roll:{}'.format(pitch, yaw, roll))
     return pitch, yaw, roll
     # return reprojectDst, euler_angle  # 投影误差，欧拉角
 
@@ -311,93 +318,13 @@ if __name__ == '__main__':
     ear_level0y = []
     ear_level1y = []
     ear_level2y = []
+
+    longest0 = []
+    longest1 = []
+    longest2 = []
+    # 最长闭眼时间
     for i in range(0, len(lines)):
         line = lines[i].strip()
         line = line.replace("\\", "/")
-        print(return_feature(line))
-    #
-    # for i in range(0, len(lines)):
-    #     line = lines[i].strip()
-    #     line = line.replace("\\", "/")
-    #     file = pd.read_csv(line)
-    #     feature_list = []
-    #     if line[11] == '0':
-    #         for i in range(0, video_length):
-    #             feature_list.append(compute_feature(file, i))
-    #         eye_feature(file, 0)
-    #         ear_level0y.append(0)
-    #     elif line[11] == '1':
-    #         for i in range(0, video_length):
-    #             feature_list.append(compute_feature(file, i))
-    #         eye_feature(file, 1)
-    #         ear_level1y.append(1)
-    #     else:
-    #         for i in range(0, video_length):
-    #             feature_list.append(compute_feature(file, i))
-    #         # eye_feature(file, 2)
-    #         # ear_level2y.append(2)
-    #     # print(mouth_feature(file))
-    #
-    # # plot
-    # ear_y = ear_level0y + ear_level1y + ear_level2y
-    # plt.scatter(ear_y, ear_level0_difference + ear_level1_difference + ear_level2_difference, c=ear_y)
-    # plt.title("max-min")
-    # plt.show()
-    # plt.scatter(ear_y, ear_self_level0 + ear_self_level1 + ear_self_level2, c=ear_y)
-    # plt.title("self_thresh")
-    # plt.show()
-    # plt.scatter(ear_y, ear_mean_level0 + ear_mean_level1 + ear_mean_level2, c=ear_y)
-    # plt.title("mean_thresh")
-    # plt.show()
-
-    # head0 = []
-    # head1 = []
-    # head2 = []
-    # for i in range(0, len(lines)):
-    #     # 第十五步：获取头部姿态
-    #     line = lines[i].strip()
-    #     line = line.replace("\\", "/")
-    #     file = pd.read_csv(line)
-    #     hCOUNTER = 0
-    #     hTOTAL = 0
-    #     NOD_AR_CONSEC_FRAMES = 5
-    #     for frame in range(0, video_length):
-    #         reprojectDst, euler_angle = get_head_pose(file, frame)
-    #         har = euler_angle[0, 0]  # 取pitch旋转角度
-    #         if har > 0.3:  # 点头阈值0.3
-    #             hCOUNTER += 1
-    #         else:
-    #             # 如果连续3次都小于阈值，则表示瞌睡点头一次
-    #             if hCOUNTER >= NOD_AR_CONSEC_FRAMES:  # 阈值：3
-    #                 hTOTAL += 1
-    #             # 重置点头帧计数器
-    #             hCOUNTER = 0
-    #     if line[11] == '0':
-    #         ear_level0y.append(0)
-    #         head0.append(hTOTAL)
-    #         # head0.append(hCOUNTER/video_length)
-    #         print("0:    " + str(hTOTAL))
-    #     elif line[11] == '1':
-    #         ear_level1y.append(1)
-    #         head1.append(hTOTAL)
-    #         # head1.append(hCOUNTER / video_length)
-    #         print("1:    " + str(hTOTAL))
-    #     else:
-    #         ear_level2y.append(2)
-    #         head2.append(hTOTAL)
-    #         # head2.append(hCOUNTER / video_length)
-    #         print("2:    " + str(hTOTAL))
-    # ear_y = ear_level0y + ear_level1y + ear_level2y
-    # plt.scatter(ear_y, head0 + head1 + head2, c=ear_y, alpha=0.1)
-    # plt.title("head_pose")
-    # plt.show()
-    # plt.hist(head0, density=True, facecolor="green", edgecolor="green", )
-    # plt.title("level0")
-    # plt.show()
-    # plt.hist(head1, density=True, facecolor="green", edgecolor="green", )
-    # plt.title("level1")
-    # plt.show()
-    # plt.hist(head2, density=True, facecolor="green", edgecolor="green", )
-    # plt.title("level2")
-    # plt.show()
+        file = pd.read_csv(line)
     exit(0)
